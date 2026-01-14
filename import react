@@ -1,0 +1,491 @@
+import React, { useState, useEffect } from 'react';
+import { Package, DollarSign, TrendingUp, Plus, X, Trash2, Upload, Edit2, Save } from 'lucide-react';
+
+export default function SkyShop() {
+  // États
+  const [products, setProducts] = useState([]);
+  const [sales, setSales] = useState([]);
+  const [activeTab, setActiveTab] = useState('products');
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  
+  // Formulaire produit
+  const [form, setForm] = useState({
+    name: '',
+    price: '',
+    stock: '',
+    category: '',
+    image: ''
+  });
+  
+  // Formulaire vente
+  const [saleForm, setSaleForm] = useState({
+    productId: '',
+    quantity: '',
+    customer: ''
+  });
+
+  // Charger les données au démarrage
+  useEffect(() => {
+    const saved = localStorage.getItem('skyshop-inventory');
+    if (saved) {
+      const data = JSON.parse(saved);
+      setProducts(data.products || []);
+      setSales(data.sales || []);
+    }
+  }, []);
+
+  // Sauvegarder automatiquement
+  useEffect(() => {
+    localStorage.setItem('skyshop-inventory', JSON.stringify({ products, sales }));
+  }, [products, sales]);
+
+  // Calculer les statistiques
+  const stats = {
+    total: products.length,
+    revenue: sales.reduce((sum, s) => sum + s.amount, 0),
+    lowStock: products.filter(p => p.stock < 10).length
+  };
+
+  // Gérer l'upload d'image
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setForm({...form, image: reader.result});
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Ajouter ou modifier un produit
+  const saveProduct = () => {
+    if (!form.name || !form.price || !form.stock) {
+      alert('Remplissez tous les champs obligatoires');
+      return;
+    }
+
+    if (editingId) {
+      // Modifier
+      setProducts(products.map(p => 
+        p.id === editingId 
+          ? { ...p, name: form.name, price: parseFloat(form.price), stock: parseInt(form.stock), category: form.category || 'Général', image: form.image }
+          : p
+      ));
+      setEditingId(null);
+    } else {
+      // Ajouter
+      const newProduct = {
+        id: Date.now(),
+        name: form.name,
+        price: parseFloat(form.price),
+        stock: parseInt(form.stock),
+        category: form.category || 'Général',
+        image: form.image
+      };
+      setProducts([...products, newProduct]);
+    }
+
+    setForm({ name: '', price: '', stock: '', category: '', image: '' });
+    setShowForm(false);
+  };
+
+  // Éditer un produit
+  const editProduct = (product) => {
+    setForm({
+      name: product.name,
+      price: product.price,
+      stock: product.stock,
+      category: product.category,
+      image: product.image || ''
+    });
+    setEditingId(product.id);
+    setShowForm(true);
+  };
+
+  // Supprimer un produit
+  const deleteProduct = (id) => {
+    if (confirm('Supprimer ce produit ?')) {
+      setProducts(products.filter(p => p.id !== id));
+    }
+  };
+
+  // Supprimer l'image d'un produit
+  const deleteProductImage = (id) => {
+    setProducts(products.map(p => 
+      p.id === id ? { ...p, image: '' } : p
+    ));
+  };
+
+  // Enregistrer une vente
+  const addSale = () => {
+    const product = products.find(p => p.id === parseInt(saleForm.productId));
+    const qty = parseInt(saleForm.quantity);
+
+    if (!product || !qty || !saleForm.customer) {
+      alert('Remplissez tous les champs');
+      return;
+    }
+
+    if (qty > product.stock) {
+      alert('Stock insuffisant');
+      return;
+    }
+
+    // Ajouter la vente
+    const newSale = {
+      id: Date.now(),
+      product: product.name,
+      quantity: qty,
+      customer: saleForm.customer,
+      amount: product.price * qty,
+      date: new Date().toISOString()
+    };
+
+    setSales([...sales, newSale]);
+
+    // Réduire le stock
+    setProducts(products.map(p => 
+      p.id === product.id ? { ...p, stock: p.stock - qty } : p
+    ));
+
+    setSaleForm({ productId: '', quantity: '', customer: '' });
+    setShowForm(false);
+  };
+
+  // Supprimer une vente
+  const deleteSale = (id) => {
+    if (confirm('Supprimer cette vente ?')) {
+      setSales(sales.filter(s => s.id !== id));
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-sky-50 via-blue-50 to-white">
+      <div className="max-w-7xl mx-auto p-6">
+        
+        {/* En-tête avec logo */}
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl p-8 mb-8 border border-sky-100">
+          <div className="flex items-center gap-4">
+            <div className="bg-gradient-to-br from-sky-400 to-blue-500 p-4 rounded-xl">
+              <Package className="text-white" size={40} />
+            </div>
+            <div>
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-sky-600 to-blue-600 bg-clip-text text-transparent">
+                SkyShop
+              </h1>
+              <p className="text-gray-500">Gestion d'inventaire moderne</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Statistiques */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg p-6 border border-sky-100">
+            <div className="flex justify-between items-center">
+              <div>
+                <p className="text-gray-500 text-sm">Total Produits</p>
+                <p className="text-3xl font-bold text-sky-600">{stats.total}</p>
+              </div>
+              <div className="bg-sky-100 p-3 rounded-xl">
+                <Package className="text-sky-600" size={32} />
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg p-6 border border-blue-100">
+            <div className="flex justify-between items-center">
+              <div>
+                <p className="text-gray-500 text-sm">Revenus Totaux</p>
+                <p className="text-3xl font-bold text-blue-600">{stats.revenue.toFixed(0)} FCFA</p>
+              </div>
+              <div className="bg-blue-100 p-3 rounded-xl">
+                <DollarSign className="text-blue-600" size={32} />
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg p-6 border border-orange-100">
+            <div className="flex justify-between items-center">
+              <div>
+                <p className="text-gray-500 text-sm">Stock Faible</p>
+                <p className="text-3xl font-bold text-orange-500">{stats.lowStock}</p>
+              </div>
+              <div className="bg-orange-100 p-3 rounded-xl">
+                <TrendingUp className="text-orange-500" size={32} />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Onglets */}
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-sky-100">
+          <div className="flex border-b border-sky-100">
+            <button
+              className={`flex-1 py-5 font-semibold transition-all ${
+                activeTab === 'products' 
+                  ? 'text-sky-600 border-b-3 border-sky-600 bg-sky-50/50' 
+                  : 'text-gray-500 hover:text-sky-600 hover:bg-sky-50/30'
+              }`}
+              onClick={() => { setActiveTab('products'); setShowForm(false); setEditingId(null); }}
+            >
+              📦 Produits
+            </button>
+            <button
+              className={`flex-1 py-5 font-semibold transition-all ${
+                activeTab === 'sales' 
+                  ? 'text-sky-600 border-b-3 border-sky-600 bg-sky-50/50' 
+                  : 'text-gray-500 hover:text-sky-600 hover:bg-sky-50/30'
+              }`}
+              onClick={() => { setActiveTab('sales'); setShowForm(false); }}
+            >
+              💰 Ventes
+            </button>
+          </div>
+
+          <div className="p-8">
+            {/* Onglet Produits */}
+            {activeTab === 'products' && (
+              <div>
+                <div className="flex justify-between items-center mb-8">
+                  <h2 className="text-2xl font-bold text-gray-800">Mes Produits</h2>
+                  <button
+                    onClick={() => {
+                      setShowForm(!showForm);
+                      if (showForm) {
+                        setEditingId(null);
+                        setForm({ name: '', price: '', stock: '', category: '', image: '' });
+                      }
+                    }}
+                    className="bg-gradient-to-r from-sky-500 to-blue-500 text-white px-6 py-3 rounded-xl hover:from-sky-600 hover:to-blue-600 shadow-lg flex items-center gap-2 transition-all"
+                  >
+                    {showForm ? <X size={20} /> : <Plus size={20} />}
+                    {showForm ? 'Fermer' : 'Ajouter'}
+                  </button>
+                </div>
+
+                {/* Formulaire d'ajout/modification */}
+                {showForm && (
+                  <div className="bg-gradient-to-br from-sky-50 to-blue-50 rounded-xl p-8 mb-8 border border-sky-200">
+                    <h3 className="text-xl font-bold text-sky-800 mb-6">
+                      {editingId ? '✏️ Modifier le produit' : '➕ Nouveau produit'}
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <input
+                        type="text"
+                        placeholder="Nom du produit *"
+                        className="border border-sky-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-sky-400 focus:border-transparent outline-none"
+                        value={form.name}
+                        onChange={(e) => setForm({...form, name: e.target.value})}
+                      />
+                      <input
+                        type="number"
+                        placeholder="Prix (FCFA) *"
+                        className="border border-sky-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-sky-400 focus:border-transparent outline-none"
+                        value={form.price}
+                        onChange={(e) => setForm({...form, price: e.target.value})}
+                      />
+                      <input
+                        type="number"
+                        placeholder="Stock *"
+                        className="border border-sky-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-sky-400 focus:border-transparent outline-none"
+                        value={form.stock}
+                        onChange={(e) => setForm({...form, stock: e.target.value})}
+                      />
+                      <input
+                        type="text"
+                        placeholder="Catégorie"
+                        className="border border-sky-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-sky-400 focus:border-transparent outline-none"
+                        value={form.category}
+                        onChange={(e) => setForm({...form, category: e.target.value})}
+                      />
+                      <div className="col-span-full">
+                        <label className="flex items-center gap-2 border border-sky-200 rounded-xl px-4 py-3 bg-white cursor-pointer hover:bg-sky-50 transition-all">
+                          <Upload size={20} className="text-sky-600" />
+                          <span className="text-gray-600">{form.image ? '✅ Image ajoutée' : 'Ajouter une image'}</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={handleImageUpload}
+                          />
+                        </label>
+                        {form.image && (
+                          <img src={form.image} alt="Preview" className="mt-2 h-32 rounded-xl object-cover" />
+                        )}
+                      </div>
+                      <button
+                        onClick={saveProduct}
+                        className="col-span-full bg-gradient-to-r from-sky-500 to-blue-500 text-white py-3 rounded-xl hover:from-sky-600 hover:to-blue-600 shadow-lg font-semibold flex items-center justify-center gap-2 transition-all"
+                      >
+                        <Save size={20} />
+                        {editingId ? 'Enregistrer les modifications' : 'Ajouter le produit'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Liste des produits */}
+                {products.length === 0 ? (
+                  <div className="text-center py-16 text-gray-400">
+                    <Package size={64} className="mx-auto mb-4 opacity-30" />
+                    <p className="text-lg">Aucun produit. Commencez par en ajouter un !</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {products.map(product => (
+                      <div key={product.id} className="bg-white border border-sky-100 rounded-xl overflow-hidden hover:shadow-xl transition-all">
+                        {product.image ? (
+                          <div className="relative">
+                            <img 
+                              src={product.image} 
+                              alt={product.name}
+                              className="w-full h-48 object-cover"
+                            />
+                            <button
+                              onClick={() => deleteProductImage(product.id)}
+                              className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-lg hover:bg-red-600"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="w-full h-48 bg-gradient-to-br from-sky-100 to-blue-100 flex items-center justify-center">
+                            <Package size={64} className="text-sky-300" />
+                          </div>
+                        )}
+                        <div className="p-5">
+                          <h3 className="font-bold text-lg text-gray-800 mb-2">{product.name}</h3>
+                          <div className="flex justify-between items-center mb-3">
+                            <span className="text-sky-600 font-bold text-2xl">{product.price} FCFA</span>
+                            <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                              product.stock < 10 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
+                            }`}>
+                              {product.stock} unités
+                            </span>
+                          </div>
+                          <span className="inline-block bg-sky-100 text-sky-700 text-xs px-3 py-1 rounded-full mb-4">
+                            {product.category}
+                          </span>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => editProduct(product)}
+                              className="flex-1 bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 flex items-center justify-center gap-2 transition-all"
+                            >
+                              <Edit2 size={16} /> Modifier
+                            </button>
+                            <button
+                              onClick={() => deleteProduct(product.id)}
+                              className="flex-1 bg-red-500 text-white py-2 rounded-lg hover:bg-red-600 flex items-center justify-center gap-2 transition-all"
+                            >
+                              <Trash2 size={16} /> Supprimer
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Onglet Ventes */}
+            {activeTab === 'sales' && (
+              <div>
+                <div className="flex justify-between items-center mb-8">
+                  <h2 className="text-2xl font-bold text-gray-800">Mes Ventes</h2>
+                  <button
+                    onClick={() => setShowForm(!showForm)}
+                    className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-6 py-3 rounded-xl hover:from-green-600 hover:to-emerald-600 shadow-lg flex items-center gap-2 transition-all"
+                  >
+                    {showForm ? <X size={20} /> : <Plus size={20} />}
+                    {showForm ? 'Fermer' : 'Nouvelle vente'}
+                  </button>
+                </div>
+
+                {/* Formulaire de vente */}
+                {showForm && (
+                  <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-8 mb-8 border border-green-200">
+                    <h3 className="text-xl font-bold text-green-800 mb-6">💰 Nouvelle vente</h3>
+                    <div className="grid gap-4">
+                      <select
+                        className="border border-green-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-green-400 focus:border-transparent outline-none"
+                        value={saleForm.productId}
+                        onChange={(e) => setSaleForm({...saleForm, productId: e.target.value})}
+                      >
+                        <option value="">Choisir un produit</option>
+                        {products.map(p => (
+                          <option key={p.id} value={p.id}>
+                            {p.name} - Stock: {p.stock} - {p.price} FCFA
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        type="number"
+                        placeholder="Quantité"
+                        className="border border-green-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-green-400 focus:border-transparent outline-none"
+                        value={saleForm.quantity}
+                        onChange={(e) => setSaleForm({...saleForm, quantity: e.target.value})}
+                      />
+                      <input
+                        type="text"
+                        placeholder="Nom du client"
+                        className="border border-green-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-green-400 focus:border-transparent outline-none"
+                        value={saleForm.customer}
+                        onChange={(e) => setSaleForm({...saleForm, customer: e.target.value})}
+                      />
+                      <button
+                        onClick={addSale}
+                        className="bg-gradient-to-r from-green-500 to-emerald-500 text-white py-3 rounded-xl hover:from-green-600 hover:to-emerald-600 shadow-lg font-semibold transition-all"
+                      >
+                        Enregistrer la vente
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Liste des ventes */}
+                {sales.length === 0 ? (
+                  <div className="text-center py-16 text-gray-400">
+                    <DollarSign size={64} className="mx-auto mb-4 opacity-30" />
+                    <p className="text-lg">Aucune vente enregistrée.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {sales.map(sale => (
+                      <div key={sale.id} className="bg-white border border-sky-100 rounded-xl p-5 hover:shadow-lg transition-all">
+                        <div className="flex justify-between items-center">
+                          <div className="flex-1">
+                            <p className="font-bold text-lg text-gray-800">{sale.product}</p>
+                            <p className="text-sm text-gray-500">
+                              👤 {sale.customer} • 📦 {sale.quantity} unités • 📅 {new Date(sale.date).toLocaleDateString('fr-FR')}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <p className="text-green-600 font-bold text-2xl">{sale.amount.toFixed(0)} FCFA</p>
+                            <button
+                              onClick={() => deleteSale(sale.id)}
+                              className="bg-red-500 text-white p-2 rounded-lg hover:bg-red-600 transition-all"
+                            >
+                              <Trash2 size={18} />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="text-center mt-8 text-gray-400 text-sm">
+          <p>SkyShop © 2026 - Gestion d'inventaire moderne</p>
+        </div>
+      </div>
+    </div>
+  );
+}
