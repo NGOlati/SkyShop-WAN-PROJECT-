@@ -1,0 +1,10 @@
+# SkyShop - Gestion d'Inventaire Moderne
+
+Application de gestion d'inventaire avec interface élégante en couleurs pastel.
+
+## Fonctionnalités
+- Gestion des produits (ajout, modification, suppression)
+- Gestion des ventes
+- Upload d'images
+- Prix en FCFA
+- Statistiques en temps réel
